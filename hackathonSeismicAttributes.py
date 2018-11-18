@@ -27,7 +27,7 @@ def estimateSeismicAttributes(data, nCDP, nT, dt, strucSigma=10, stftWinLen = 51
             cf[j,i] = np.sum(freqs * np.abs(dataTimeFreq[:,j])) / sumSpecs
             cfsig[j,i] = (np.sum((freqs - cf[j,i]) ** 2 * np.abs(dataTimeFreq[:,j])) / sumSpecs) ** 0.5
         # output progress
-        if mod(i,100)==0:
+        if np.mod(i,100)==0:
             print('%i traces of %i total transformed' % (i, nCDP))
 
     # form envelope of signal

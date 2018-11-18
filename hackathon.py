@@ -8,6 +8,9 @@ import SOM
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 
+####################################
+########## DATA I/O ################
+####################################
 # define test file
 file = 'C:\\Users\\py06j\\Documents\\work\\hackathon\\data\\FINAL_PSTM_FULL\\WG152D0002-00036A541-PSTM_FINAL_FILTERED-FULL_STK-249775484.sgy'
 
@@ -28,8 +31,9 @@ for trace in segy.trace:
     data[:,a] = np.asarray(trace[0:nT] * 1.0)
     a=a+1
 
-# limit data laterally to speed up
-
+#################################
+##### FEATURE EXTRACTION ########
+#################################
 # estimate seismic attributes
 seisStructTensX, seisStructTensXY, seisStructTensY, cf, cfsig, envelope = esa.estimateSeismicAttributes(data, nCDP, nT, dt)
 
@@ -45,8 +49,11 @@ seisStructTensXYV = np.reshape(seisStructTensXY, [np.product(np.shape(seisStruct
 #mask1 = (envelopeV > np.max(envelopeV)/100.0)
 mask3 = (envelopeV < np.max(envelopeV) * 0.8)
 mask2 = np.asarray([not np.isnan(cfV[i]) for i in range(len(cfV))])
-maskFin = np.asarray([mask1[i][0] and mask2[i] and mask3[i][0] for i in range(len(mask1))])
+maskFin = np.asarray([mask2[i] and mask3[i][0] for i in range(len(mask2))])
 
+################################
+####### FEATURE SCALING ########
+################################
 # mask data and convert to approximately normal distributions
 envelopeV2 = np.log(envelopeV[maskFin])
 cfV2 = np.log(cfV[maskFin])
@@ -63,6 +70,9 @@ seisStructTensXV3 = (seisStructTensXV2 - np.mean(seisStructTensXV2)) / np.std(se
 seisStructTensYV3 = (seisStructTensYV2 - np.mean(seisStructTensYV2)) / np.std(seisStructTensYV2)
 seisStructTensXYV3 = (seisStructTensXYV2 - np.mean(seisStructTensXYV2)) / np.std(seisStructTensXYV2)
 
+#####################################
+######### CLUSTERING ################
+#####################################
 # train SOM on this input data
 #concatenate features into 1 matrix
 input_data = np.hstack([envelopeV3, cfV3, cfsigV3, seisStructTensXV3, seisStructTensYV3, seisStructTensXYV3])
@@ -74,6 +84,7 @@ print('Finished SOM')
 
 #TSNEout = TSNE(n_components=2, perplexity=5).fit_transform(input_data) - memory and time constraints - not used
 
+# run kmeans clustering
 kmeans = KMeans(n_clusters=6).fit(input_data)
 
 # store labels in original array size - kmeans
@@ -87,9 +98,9 @@ clusts_som[maskFin] = np.expand_dims(som1.finalNeuron, axis=1)
 clusts_som_reshape = np.reshape(clusts,np.shape(envelope))
 
 
-############
-# plotting #
-############
+########################
+####### plotting #######
+########################
 # dsplay data
 fig, ax = plt.subplots()
 cax = ax.imshow(data, vmin = np.min(data)/10, vmax = np.max(data)/10, aspect='auto', cmap=plt.cm.bone, extent=[segy._ilines[0], segy._ilines[-1], segy._samples[nT], segy._samples[0]])
@@ -99,28 +110,28 @@ ax.set_ylabel('TWT (ms)')
 cbar = fig.colorbar(cax)
 
 fig, ax = plt.subplots()
-cax = ax.imshow(seisStructTensX, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[0], segy._samples[nT]], vmin=1*10**5, vmax=1*10**7)
+cax = ax.imshow(seisStructTensX, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[nT], segy._samples[0]], vmin=1*10**5, vmax=1*10**7)
 ax.set_title('Strucutre tensor X')
 ax.set_xlabel('CDP')
 ax.set_ylabel('TWT (ms)')
 cbar = fig.colorbar(cax)
 
 fig, ax = plt.subplots()
-cax = ax.imshow(seisStructTensXY, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[0], segy._samples[nT]], vmin=-1*10**7, vmax=1*10**7)
+cax = ax.imshow(seisStructTensXY, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[nT], segy._samples[0]], vmin=-1*10**7, vmax=1*10**7)
 ax.set_title('Structure tensor XY')
 ax.set_xlabel('CDP')
 ax.set_ylabel('TWT (ms)')
 cbar = fig.colorbar(cax)
 
 fig, ax = plt.subplots()
-cax = ax.imshow(seisStructTensY, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[0], segy._samples[nT]], vmin=3*10**7, vmax=9*10**7)
+cax = ax.imshow(seisStructTensY, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[nT], segy._samples[0]], vmin=3*10**7, vmax=9*10**7)
 ax.set_title('Structure tensor Y')
 ax.set_xlabel('CDP')
 ax.set_ylabel('TWT (ms)')
 cbar = fig.colorbar(cax)
 
 fig, ax = plt.subplots()
-cax = ax.imshow(cf, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[0], segy._samples[-1]], vmin=20, vmax=60)
+cax = ax.imshow(cf, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[nT], segy._samples[0]], vmin=20, vmax=60)
 ax.set_title('Centroid frequency')
 ax.set_xlabel('CDP')
 ax.set_ylabel('TWT (ms)')
@@ -128,7 +139,7 @@ cbar = fig.colorbar(cax)
 cbar.ax.set_ylabel('Centroid frequency (Hz)')
 
 fig, ax = plt.subplots()
-cax = ax.imshow(cfsig, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[0], segy._samples[-1]], vmin=15, vmax=40)
+cax = ax.imshow(cfsig, aspect='auto', extent=[segy._ilines[0], segy._ilines[-1], segy._samples[nT], segy._samples[0]], vmin=15, vmax=40)
 ax.set_title('Centroid bandwidth')
 ax.set_xlabel('CDP')
 ax.set_ylabel('TWT (ms)')
@@ -136,7 +147,7 @@ cbar = fig.colorbar(cax)
 cbar.ax.set_ylabel('Centroid bandwidth (Hz)')
 
 fig, ax = plt.subplots()
-cax = ax.imshow(np.abs(envelope), aspect='auto' , extent=[segy._ilines[0], segy._ilines[-1], segy._samples[0], segy._samples[nT]], vmin=0, vmax=10000)
+cax = ax.imshow(np.abs(envelope), aspect='auto' , extent=[segy._ilines[0], segy._ilines[-1], segy._samples[nT], segy._samples[0]], vmin=0, vmax=10000)
 ax.set_title('Envelope of signal')
 ax.set_xlabel('CDP')
 ax.set_ylabel('TWT (ms)')
